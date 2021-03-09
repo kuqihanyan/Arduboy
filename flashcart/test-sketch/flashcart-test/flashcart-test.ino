@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Flash cart test v1.2 by Mr.Blinky 2018-2019 licenced under MIT
+ * Flash cart test v1.21 by Mr.Blinky 2018-2019 licenced under MIT
  * *****************************************************************************
  * 
  * Press A button to view JEDEC ID
@@ -28,7 +28,6 @@
 #define ANIMATION_FRAMES 1454      /* number of 1K images in bin file  */
 #define ANIMATION_FPS 15
 
-
 #include <Arduboy2.h>
 #include "src/cart.h"
 
@@ -44,13 +43,13 @@ void printHexByte(uint8_t b)
 }
 
 void showJedecID()
-{
-  cartEnable();
-  cartTransfer(SFC_JEDEC_ID);
-  jedecID.manufacturer = cartTransfer(0);
-  jedecID.device = cartTransfer(0);
-  jedecID.size = cartTransfer(0);
-  cartDisable();
+{ //Read flash chip ID and print it to screen
+  Cart::enable();
+  Cart::writeByte(SFC_JEDEC_ID);
+  jedecID.manufacturer = Cart::readByte();
+  jedecID.device = Cart::readByte();
+  jedecID.size = Cart::readByte();
+  Cart::disable();
   
   arduboy.clear();
   arduboy.setCursor(18,32-8);
@@ -59,22 +58,28 @@ void showJedecID()
   printHexByte(jedecID.device );
   printHexByte(jedecID.size);
 
-  arduboy.setCursor(30,32+8);
+  arduboy.setCursor(24,32+8);
   arduboy.print(F("STATUS:"));
-  cartEnable();
-  cartTransfer(SFC_READSTATUS2);
-  printHexByte(cartTransfer(0));
-  cartDisable();
+  Cart::enable();
+  Cart::writeByte(SFC_READSTATUS3);
+  printHexByte(Cart::readByte());
+  Cart::disable();
   
-  cartEnable();
-  cartTransfer(SFC_READSTATUS1);
-  printHexByte(cartTransfer(0));
-  cartDisable();
+  Cart::enable();
+  Cart::writeByte(SFC_READSTATUS2);
+  printHexByte(Cart::readByte());
+  Cart::disable();
+  
+  Cart::enable();
+  Cart::writeByte(SFC_READSTATUS1);
+  printHexByte(Cart::readByte());
+  Cart::disable();
 }
 
 void showFrames()
 {
-  cartReadDataBlock(arduboy.sBuffer, 1024, 4 * frames, 0); // 4 = 1K / 256 byte page
+  //loads 1K images from flash to display buffer  
+  Cart::readDataBytes((uint24_t)frames * 1024, arduboy.sBuffer, 1024);
   if (++frames == ANIMATION_FRAMES) frames = 0; //number of frames in animation
 }
 
@@ -93,8 +98,9 @@ void setup() {
   arduboy.setCursor(30,56);
   arduboy.print(F("Mr. Blinky"));
     
-  disableOLED(); //OLED must be disabled before using cart
-  cartInit(ANIMATION_DATA_PAGE);  //cart may be in power down mode so wake it up (from cathy bootloader)
+  Cart::disableOLED(); //OLED must be disabled before cart can be used. OLED display should only be enabled prior updating the display.
+  Cart::begin(ANIMATION_DATA_PAGE);  //cart may be in power down mode so wake it up (Cathy bootloader puts cart into powerdown mode)
+                                     //and set the program data flash page for development / uploading through Arduino IDE
 }
 
 
@@ -116,8 +122,7 @@ void loop() {
 	  case 1 : showJedecID(); break;
 	  case 2 : showFrames(); break;
   }
-  enableOLED();// only enable OLED prior using display
+  Cart::enableOLED();// only enable OLED prior using display
   arduboy.display();
-  disableOLED();// disable so flash cart can be used
+  Cart::disableOLED();// disable so flash cart can be used
 }
-
